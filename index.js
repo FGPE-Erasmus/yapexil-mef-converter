@@ -1,5 +1,6 @@
 const unzipper = require("unzipper");
 const fs = require("fs");
+const archiver = require('archiver');
 
 let config = require('./config');
 let builder = require('xmlbuilder');
@@ -131,17 +132,15 @@ exports.yapexil2mefStream = async function (file, debug=false) {
                 entry.autodrain(); //Load next file
             }
         })
-        .on('finish',async function (finish){
+        .on('finish',async function (){
             if(metadata_flag){
-                //informations['tests'].push(Object.values(temp_test).in);
                 informations['tests'] = normalizeTests(temp_test);
-                //console.log(informations['tests'][0].name);
                 console.log(informations);
+                return zipping();
             }
             else
                 console.error("No metadata.json file found!");
         });
-
 }
 
 getFilesInfo = function (fileName){
@@ -165,4 +164,43 @@ normalizeTests = function (test) {
         r.push(test[key])
 
     return r;
+}
+
+zipping = function (){
+    // create a file to stream archive data to.
+    const output = fs.createWriteStream('mef.zip');
+    const archive = archiver('zip', {
+        zlib: { level: 9 } // Sets the compression level.
+    });
+
+    // listen for all archive data to be written
+    // 'close' event is fired only when a file descriptor is involved
+    output.on('close', function() {
+        console.log(archive.pointer() + ' total bytes');
+        console.log('archiver has been finalized and the output file descriptor has closed.');
+    });
+    // good practice to catch warnings (ie stat failures and other non-blocking errors)
+    archive.on('warning', function(err) {
+        if (err.code === 'ENOENT') {
+            // log warning
+        } else {
+            // throw error
+            throw err;
+        }
+    });
+
+    // good practice to catch this error explicitly
+    archive.on('error', function(err) {
+        throw err;
+    });
+
+    // append files from a sub-directory
+    archive.directory('mef/', false);
+
+    // pipe archive data to the file
+    archive.pipe(output);
+
+    archive.finalize();
+
+    return archive;
 }

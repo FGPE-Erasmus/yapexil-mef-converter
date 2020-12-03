@@ -8,6 +8,7 @@
   "author": "Ciro Giuseppe De Vita, Gennaro Mellone",
   "license": "ISC",
   "dependencies": {
+    "archiver": "^5.1.0",
     "etl": "^0.6.12",
     "stream": "0.0.2",
     "unzipper": "^0.10.11",
