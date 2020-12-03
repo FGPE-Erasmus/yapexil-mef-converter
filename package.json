@@ -1,0 +1,16 @@
+{
+  "name": "yapexil-mef-converter",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": "",
+  "keywords": [],
+  "author": "Ciro Giuseppe De Vita, Gennaro Mellone",
+  "license": "ISC",
+  "dependencies": {
+    "etl": "^0.6.12",
+    "stream": "0.0.2",
+    "unzipper": "^0.10.11",
+    "xmlbuilder": "^15.1.1"
+  }
+}
