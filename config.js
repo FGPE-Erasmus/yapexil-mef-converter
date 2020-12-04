@@ -1,5 +1,7 @@
 let config = {};
 
+config.folders_name = ["embeddables", "statements", "tests", "solutions", "skeletons"];
+
 config.folders = [
     {
         name:'embeddables',
