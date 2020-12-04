@@ -13,10 +13,10 @@ exports.yapexil2mef = function(path, debug=false) {
 const main_folder = 'mef/';
 let metadata_flag = false; //Search for metadata.json file
 
-let folders = config.folders;
-let informations = config.temp_info; //Used to store temp informations to compose Content.xml
+global.informations = config.temp_info; //Used to store temp informations to compose Content.xml
 let temp_test = {};
 let folderCount = 1;
+let metadata;
 
 recursiveGetInfo = function(path, debug){
     fs.readdir(path, {withFileTypes:true}, function (err, files) {
@@ -24,14 +24,17 @@ recursiveGetInfo = function(path, debug){
             return console.log('Unable to scan directory: ' + err);
         }
         files.forEach(function (_file) {
+            let full_path = path + "/" + _file.name;
             if (_file.isDirectory()) {
-                recursiveGetInfo(path + "/" + _file.name);
+                recursiveGetInfo(full_path);
             }
             else{
-                if (!path.includes('.DS_Store') && !path.includes('__MAC')){
-                    let file = getFilesInfo(path + "/" + _file.name);
+                if (!full_path.match('.DS_Store')  && !full_path.match('__MAC')){
+
+                    let file = getFilesInfo(full_path);
                     let folder = config.folders.find(_f => _f.name === file.folder);
                     if (folder !== undefined){
+                        //console.log(file.name);
                         if(file.name !== 'metadata.json'){
                             //Search for EMBEDDABLES folder
                             if(file.folder === "embeddables"){
@@ -40,9 +43,11 @@ recursiveGetInfo = function(path, debug){
                                     fs.mkdir(main_folder + folder.mef_img, { recursive: true }, (err) => {
                                         if (err) throw err;
                                         fs.copyFile(path + "/" + _file.name, main_folder + folder.mef_img + file.name, function () {
-                                            informations['images'].push(file.name);
+                                            global.informations['images'].push(file.name);
                                             if(debug)
                                                 console.log(main_folder + folder.mef_img + file.name);
+
+
                                         })
                                     });
                                 }
@@ -50,7 +55,7 @@ recursiveGetInfo = function(path, debug){
                                     fs.mkdir(main_folder + folder.mef_other, { recursive: true }, (err) => {
                                         if (err) throw err;
                                         fs.copyFile(path + "/" + _file.name, main_folder + folder.mef_other + file.name, function () {
-                                            informations['images'].push(file.name);
+                                            global.informations['images'].push(file.name);
                                             if(debug)
                                                 console.log(main_folder + folder.mef_img + file.name);
                                         })
@@ -65,7 +70,7 @@ recursiveGetInfo = function(path, debug){
                                     if(file.extension !== undefined){
                                         if(config.statementExtensions.includes(file.extension)) //SEARCH FOR HTML, PDF, DOCS  statements
                                             fs.copyFile(path + "/" + _file.name, main_folder + folder.mef + file.name, function () {
-                                                informations['statement'] = file.name;
+                                                global.informations['statement'] = file.name;
                                             });
 
                                         else if (file.folder === 'tests'){ //SEARCH FOR TESTS FILES
@@ -95,7 +100,9 @@ recursiveGetInfo = function(path, debug){
                                         else{ //SEARCH FOR OTHER FILES
                                             if(file.folder !== undefined)
                                                 fs.copyFile(path + "/" + _file.name, main_folder + folder.mef + file.name, function () {
-                                                    informations[file.folder].push(file.name);
+                                                    //console.log(main_folder + folder.mef + file.name);
+
+                                                    global.informations[file.folder].push(file.name);
                                                 });
                                         }
 
@@ -111,7 +118,8 @@ recursiveGetInfo = function(path, debug){
 
                                 fs.readFile(path + "/" + _file.name, (err, data) => {
                                     if (err) throw err;
-                                    informations['metadata'] = JSON.parse(data.toString()); //Save METADATA
+                                    global.informations['metadata'] = JSON.parse(data.toString()); //Save METADATA
+                                    metadata =  JSON.parse(data.toString());
                                 });
 
                                 if(debug)
@@ -126,12 +134,15 @@ recursiveGetInfo = function(path, debug){
 }
 
 exports.yapexil2mefStream = async function (file, debug=false) {
+
     if(debug)
         console.log("START UNZIPPING ...");
 
-    file.pipe(unzipper.Extract({ path: '/tmp/temp_mef' })).on('finish', function () {
+    file.pipe(unzipper.Extract({ path: '/tmp/temp_mef' }))
+        .on('finish', function () {
         console.log("Fine");
-        recursiveGetInfo('/tmp/temp_mef', false);
+        recursiveGetInfo('/tmp/temp_mef', true);
+        console.log(metadata);
     });
 }
 
