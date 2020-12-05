@@ -1,6 +1,6 @@
 let config = {};
 
-config.folders_name = ["embeddables", "statements", "tests", "solutions", "skeletons"];
+config.folders_name = ["images", "problemroot", "tests", "solutions", "skeletons"];
 
 config.folders = [
     {
