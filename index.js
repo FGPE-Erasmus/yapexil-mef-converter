@@ -138,6 +138,7 @@ exports.yapexil2mefStream = async function (file, debug=false) {
     console.log(info);
     if(info.metadata !== ''){
         let x = await generateContent(info);
+        console.log(x);
     }
 
     console.log("FINISH!");
@@ -200,6 +201,7 @@ zipping = function (){
 
 readZip =  async function(pathFile,debug) {
     const directory = await unzipper.Open.file(pathFile);
+    await fs.createReadStream(pathFile).pipe(unzipper.Extract({ path: '/tmp/temp_mef' }));
 
     const main_folder = 'mef/';
     let metadata_flag = false; //Search for metadata.json file
@@ -296,11 +298,9 @@ readZip =  async function(pathFile,debug) {
                     else{
                         if(file.folder === 'metadata.json' && file.name === 'metadata.json') {
                             metadata_flag = true;
-                            files[x]
-                                .stream()
-                                .pipe(fs.createWriteStream(main_folder + file.name))
-                                .on('error',reject)
-                                .on('finish',resolve)
+
+                            fs.copyFileSync('/tmp/temp_mef/' + file.name, main_folder + file.name);
+
                             informations['metadata'] = main_folder + file.name;
 
                         }
@@ -312,19 +312,18 @@ readZip =  async function(pathFile,debug) {
     });
 
 }
+
 generateContent = async function (info){
 //NOT WORKING!!!!!!
     return new Promise(  (resolve, reject) => {
         //Open and read metadata.json
         let str = fs.createReadStream(info.metadata).on('data', function (chunk) {
-            console.log(chunk.toString());
+            console.log(JSON.parse(chunk.toString()));
+            resolve('ok');
         });
-
-
-
-        resolve('ok');
     });
 }
+
 createFolders = function (debug){
     const main_folder = 'mef/';
     if(debug)
