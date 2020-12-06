@@ -7,65 +7,32 @@ let config = require('./config');
 let builder = require('xmlbuilder');
 
 let timestamp = Date.now().toString();
-const main_folder = 'mef_' + timestamp + '/';
-const temp_path = '/tmp/temp_mef_' + timestamp + "/";
+let main_folder ;
+let temp_path ;
 
 
-exports.yapexil2mef = function(path, debug=false) {
-    //let file = fs.createReadStream(path);
-    this.yapexil2mefStream(path,debug);
-}
-
-exports.yapexil2mefStream = async function (file, debug=false) {
-
+exports.yapexil2mef = async function (input_path, output_path='/tmp/yapexiltomef/', debug=false) {
+    main_folder = output_path + '_' + timestamp + '/';
+    temp_path = '/tmp/temp_mef_' + timestamp + "/";
     if(debug)
         console.log("START UNZIPPING ...");
 
     console.log(createFolders(debug));
 
-    let info = await readZip(file,debug);
+    let info = await readZip(input_path,debug);
     console.log(info);
     if(info.metadata !== ''){
         let content = await generateContent(info);
         fs.writeFileSync(main_folder + 'Content.xml',content);
         console.log(content);
     }
+    if(debug)
+        console.log("Start zipping...");
+
+    return await zipping(output_path);
+    //console.log(zip);
 
     console.log("FINISH!");
-
-}
-
-getFilesInfo = function (fileName){
-    let extension = fileName.split(".")[1];
-
-    let temp_name = fileName.split("/");
-    let name = temp_name[temp_name.length-1];
-
-    return {
-        name: name,
-        extension: extension,
-        folder:temp_name[0],
-        nextfolder: temp_name[1],
-        fullPath: fileName
-    }
-}
-
-createFolders = function (debug){
-    if(debug)
-        console.log("Creating folders...");
-
-    return new Promise((resolve, reject) => {
-        for (let f in config.folders_name){
-            console.log(main_folder + config.folders_name[f]);
-            fs.mkdir(main_folder + config.folders_name[f],  { recursive: true },err => {
-                if(err) throw err;
-            });
-
-        }
-        resolve('Finish creating folders');
-        reject('Error creating folders');
-    });
-
 
 }
 
@@ -136,9 +103,8 @@ readZip =  async function(pathFile,debug) {
                                     else
                                         temp_test[file.nextfolder].out = file.name;
 
-                                    //if(!informations['tests']['name'].match(temp_test[file.nextfolder]['name']))
-                                    // TODO remove duplicates of T<number> from Information dictionary!!
-                                    informations[folder.name].push(temp_test[file.nextfolder]);
+                                    if(file.name.includes('in')) //Used only to not create duplicates
+                                        informations[folder.name].push(temp_test[file.nextfolder]);
 
                                     fs.mkdir(main_folder + folder.mef + temp_test[file.nextfolder].folder, { recursive: true }, async (err) => {
                                         if (err) throw err;
@@ -183,6 +149,42 @@ readZip =  async function(pathFile,debug) {
 
 }
 
+
+getFilesInfo = function (fileName){
+    let extension = fileName.split(".")[1];
+
+    let temp_name = fileName.split("/");
+    let name = temp_name[temp_name.length-1];
+
+    return {
+        name: name,
+        extension: extension,
+        folder:temp_name[0],
+        nextfolder: temp_name[1],
+        fullPath: fileName
+    }
+}
+
+createFolders = function (debug){
+    if(debug)
+        console.log("Creating folders...");
+
+    return new Promise((resolve, reject) => {
+        for (let f in config.folders_name){
+            console.log(main_folder + config.folders_name[f]);
+            fs.mkdir(main_folder + config.folders_name[f],  { recursive: true },err => {
+                if(err) throw err;
+            });
+
+        }
+        resolve('Finish creating folders');
+        reject('Error creating folders');
+    });
+
+
+}
+
+
 generateContent = async function (info){
     return new Promise(  (resolve, reject) => {
         //Open and read metadata.json
@@ -217,41 +219,50 @@ generateContent = async function (info){
     });
 }
 
-zipping = function (){
-    // create a file to stream archive data to.
-    const output = fs.createWriteStream('mef.zip');
-    const archive = archiver('zip', {
-        zlib: { level: 9 } // Sets the compression level.
-    });
+zipping = function (output_path){
+    let out_path = output_path + 'mef_' + timestamp + '.zip';
+    return new Promise(  (resolve, reject) => {
 
-    // listen for all archive data to be written
-    // 'close' event is fired only when a file descriptor is involved
-    output.on('close', function() {
-        console.log(archive.pointer() + ' total bytes');
-        console.log('archiver has been finalized and the output file descriptor has closed.');
-    });
-    // good practice to catch warnings (ie stat failures and other non-blocking errors)
-    archive.on('warning', function(err) {
-        if (err.code === 'ENOENT') {
-            // log warning
-        } else {
-            // throw error
+        // create a file to stream archive data to.
+
+        const output = fs.createWriteStream(out_path);
+        const archive = archiver('zip', {
+            zlib: { level: 9 } // Sets the compression level.
+        });
+
+        // listen for all archive data to be written
+        // 'close' event is fired only when a file descriptor is involved
+        output.on('close', function() {
+            console.log(archive.pointer() + ' total bytes');
+            console.log('archiver has been finalized and the output file descriptor has closed.');
+
+            fs.rmdirSync(main_folder,{recursive:true});
+            resolve(out_path);
+
+        });
+        // good practice to catch warnings (ie stat failures and other non-blocking errors)
+        archive.on('warning', function(err) {
+            if (err.code === 'ENOENT') {
+                // log warning
+            } else {
+                // throw error
+                throw err;
+            }
+        });
+
+        // good practice to catch this error explicitly
+        archive.on('error', function(err) {
+            reject(err);
             throw err;
-        }
+        });
+
+        // append files from a sub-directory
+        archive.directory(main_folder, false);
+
+        // pipe archive data to the file
+        archive.pipe(output);
+
+        archive.finalize();
     });
 
-    // good practice to catch this error explicitly
-    archive.on('error', function(err) {
-        throw err;
-    });
-
-    // append files from a sub-directory
-    archive.directory('mef/', false);
-
-    // pipe archive data to the file
-    archive.pipe(output);
-
-    archive.finalize();
-
-    return archive;
 }
