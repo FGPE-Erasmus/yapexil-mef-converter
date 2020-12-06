@@ -314,12 +314,16 @@ readZip =  async function(pathFile,debug) {
 }
 
 generateContent = async function (info){
-//NOT WORKING!!!!!!
     return new Promise(  (resolve, reject) => {
         //Open and read metadata.json
-        let str = fs.createReadStream(info.metadata).on('data', function (chunk) {
-            console.log(JSON.parse(chunk.toString()));
-            resolve('ok');
+        fs.createReadStream(info.metadata).on('data', function (chunk) {
+            //console.log(JSON.parse(chunk.toString()));
+            let root = builder.create('Problem',
+                {version: '1.0', encoding: 'UTF-8', standalone: false},
+                {pubID: null, sysID: null});
+
+            let xml = root.end({pretty:true});
+            resolve(xml);
         });
     });
 }
