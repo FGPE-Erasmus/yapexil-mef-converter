@@ -137,8 +137,9 @@ exports.yapexil2mefStream = async function (file, debug=false) {
     let info = await readZip(file,debug);
     console.log(info);
     if(info.metadata !== ''){
-        let x = await generateContent(info);
-        console.log(x);
+        let content = await generateContent(info);
+        fs.writeFileSync('mef/Content.xml',content);
+        console.log(content);
     }
 
     console.log("FINISH!");
@@ -317,12 +318,31 @@ generateContent = async function (info){
     return new Promise(  (resolve, reject) => {
         //Open and read metadata.json
         fs.createReadStream(info.metadata).on('data', function (chunk) {
-            //console.log(JSON.parse(chunk.toString()));
+            let meta = JSON.parse(chunk.toString());
+            console.log(meta);
+            let emp = "";
             let root = builder.create('Problem',
-                {version: '1.0', encoding: 'UTF-8', standalone: false},
-                {pubID: null, sysID: null});
+                {version: '1.0', encoding: 'UTF-8', standalone: false});
+            root.att({'xmlns':'http://www.ncc.up.pt/mooshak/',
+                'Color':'#000000',
+                'Description': info.statements, 'Difficulty': meta.difficulty, 'Dynamic_corrector': emp, 'Editor_kind': emp, 'Environment': emp,
+                'Fatal': emp, 'Name': info.statements.split('.')[0], 'Original_location': emp, 'PDF': emp, 'Program': emp, 'Start': emp, 'Static_corrector': emp,
+                'Stop': emp, 'Timeout': emp, 'Title': meta.title, 'Type': emp, 'Warning': emp,
+            });
+            root.ele('Solutions',{'Fatal': emp, 'Warning': emp, 'xml:id':'solutions'});
+            root.ele('Skeletons',{'Show': 'yes','xml:id':'skeletons'});
+            let test = root.ele('Tests',{'Definition': emp, 'Fatal': emp, 'Warning': emp, 'xml:id':'tests'});
+            for (let x of info.tests){
+                test.ele('Test',{'Fatal': emp, 'Feedback': emp, 'Points': emp,
+                    'Result': emp, 'Show': emp, 'SolutionErrors': emp,
+                    'Timeout': emp, 'Warning': emp, 'args': emp,
+                    'context': emp, 'input': x.in, 'output': x.out,
+                    'xml:id':'tests.' + x.name});
+            }
+            root.ele('Images',{'Fatal': emp, 'Warning': emp, 'xml:id':'images'});
 
             let xml = root.end({pretty:true});
+            fs.unlinkSync('mef/metadata.json');
             resolve(xml);
         });
     });

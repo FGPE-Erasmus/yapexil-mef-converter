@@ -43,7 +43,7 @@ config.ignoreFiles = ['__MACOSX', '.DS_Store'];
 
 config.temp_info = {
     metadata: "",
-    statement: "",
+    statements: "",
     tests : [],
     solutions:[],
     skeletons: [],
