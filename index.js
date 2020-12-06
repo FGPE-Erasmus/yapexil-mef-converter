@@ -10,7 +10,6 @@ let timestamp = Date.now().toString();
 let main_folder ;
 let temp_path ;
 
-
 exports.yapexil2mef = async function (input_path, output_path='/tmp/yapexiltomef/', debug=false) {
     main_folder = output_path + '_' + timestamp + '/';
     temp_path = '/tmp/temp_mef_' + timestamp + "/";
@@ -41,7 +40,9 @@ readZip = async function(pathFile,debug) {
 
     let informations = config.temp_info; //Used to store temp informations to compose Content.xml
     let temp_test = {};
-    let folderCount = 1;
+    let temp_skeleton = {};
+    let folderCountTest = 1;
+    let folderCountSkeleton = 1;
     let metadata;
 
     const directory = await unzipper.Open.file(pathFile);
@@ -76,7 +77,7 @@ readZip = async function(pathFile,debug) {
                                         .pipe(fs.createWriteStream(main_folder + folder.mef_other + file.name))
                                         .on('error',reject)
                                         .on('finish',resolve)
-                                    informations['problemroot'].push(file.name);
+                                    informations[folder.name] = file.name;
                                 }
                             }
                             else{
@@ -91,12 +92,12 @@ readZip = async function(pathFile,debug) {
                                 else if (file.folder === 'tests'){ //Save and organize TESTS files
                                     if(temp_test[file.nextfolder] === undefined){
                                         temp_test[file.nextfolder] = {
-                                            name: 'T' + folderCount.toString(),
+                                            name: 'T' + folderCountTest.toString(),
                                             in: '',
                                             out: '',
-                                            folder: 'T' + folderCount.toString() +'/'
+                                            folder: 'T' + folderCountTest.toString() +'/'
                                         }
-                                        folderCount ++;
+                                        folderCountTest ++;
                                     }
                                     if(file.name.includes('in'))
                                         temp_test[file.nextfolder].in = file.name;
@@ -111,6 +112,29 @@ readZip = async function(pathFile,debug) {
                                         files[x]
                                             .stream()
                                             .pipe(fs.createWriteStream(main_folder + folder.mef + temp_test[file.nextfolder].folder + file.name))
+                                            .on('error',reject)
+                                            .on('finish',resolve)
+
+                                    });
+                                }
+                                else if(file.folder === 'skeletons'){
+                                    if(temp_skeleton[file.nextfolder] === undefined){
+                                        temp_skeleton[file.nextfolder] = {
+                                            name: 'T' + folderCountSkeleton.toString(),
+                                            filename: '',
+                                            folder: 'T' + folderCountSkeleton.toString() +'/'
+                                        }
+                                        folderCountSkeleton ++;
+                                    }
+
+                                    temp_skeleton[file.nextfolder].filename = file.name;
+                                    informations[folder.name].push(temp_skeleton[file.nextfolder]);
+
+                                    fs.mkdir(main_folder + folder.mef + temp_skeleton[file.nextfolder].folder, { recursive: true }, async (err) => {
+                                        if (err) throw err;
+                                        files[x]
+                                            .stream()
+                                            .pipe(fs.createWriteStream(main_folder + folder.mef + temp_skeleton[file.nextfolder].folder + file.name))
                                             .on('error',reject)
                                             .on('finish',resolve)
 
@@ -199,7 +223,6 @@ generateContent = async function (info){
                 'Stop': emp, 'Timeout': emp, 'Title': meta.title, 'Type': emp, 'Warning': emp,
             });
             root.ele('Solutions',{'Fatal': emp, 'Warning': emp, 'xml:id':'solutions'});
-            root.ele('Skeletons',{'Show': 'yes','xml:id':'skeletons'});
             let test = root.ele('Tests',{'Definition': emp, 'Fatal': emp, 'Warning': emp, 'xml:id':'tests'});
             for (let x of info.tests){
                 test.ele('Test',{'Fatal': emp, 'Feedback': emp, 'Points': emp,
@@ -207,6 +230,11 @@ generateContent = async function (info){
                     'Timeout': emp, 'Warning': emp, 'args': emp,
                     'context': emp, 'input': x.in, 'output': x.out,
                     'xml:id':'tests.' + x.name});
+            }
+            let skeleton = root.ele('Skeletons',{'Show': 'yes', 'xml:id':'skeletons'});
+            for (let x of info.skeletons){
+                console.log(x);
+                skeleton.ele('Skeletons',{'Skeleton': x.filename, 'Show': 'yes',  'Extension': x.filename.split('.')[1], 'xml:id':'skeletons.' + x.name});
             }
             root.ele('Images',{'Fatal': emp, 'Warning': emp, 'xml:id':'images'});
 

@@ -1,13 +1,13 @@
 let config = {};
 
-config.folders_name = ["images", "problemroot", "tests", "solutions", "skeletons"];
+config.folders_name = ["images", "tests", "solutions", "skeletons"];
 
 config.folders = [
     {
         name:'embeddables',
         yapexil:'embeddables/',
         mef_img: 'images/',
-        mef_other: 'problemroot/'
+        mef_other: ''
     },
     {
         name:'statements',
