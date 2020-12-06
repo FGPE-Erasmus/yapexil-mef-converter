@@ -29,14 +29,14 @@ exports.yapexil2mef = async function (input_path, output_path='/tmp/yapexiltomef
     if(debug)
         console.log("Start zipping...");
 
-    return await zipping(output_path);
-    //console.log(zip);
-
+    let zip = await zipping(output_path);
+    console.log(zip);
     console.log("FINISH!");
 
+    return zip;
 }
 
-readZip =  async function(pathFile,debug) {
+readZip = async function(pathFile,debug) {
     let metadata_flag = false; //Search for metadata.json file
 
     let informations = config.temp_info; //Used to store temp informations to compose Content.xml
@@ -149,7 +149,6 @@ readZip =  async function(pathFile,debug) {
 
 }
 
-
 getFilesInfo = function (fileName){
     let extension = fileName.split(".")[1];
 
@@ -183,7 +182,6 @@ createFolders = function (debug){
 
 
 }
-
 
 generateContent = async function (info){
     return new Promise(  (resolve, reject) => {
@@ -219,7 +217,7 @@ generateContent = async function (info){
     });
 }
 
-zipping = function (output_path){
+zipping = async function (output_path){
     let out_path = output_path + 'mef_' + timestamp + '.zip';
     return new Promise(  (resolve, reject) => {
 
@@ -230,16 +228,7 @@ zipping = function (output_path){
             zlib: { level: 9 } // Sets the compression level.
         });
 
-        // listen for all archive data to be written
-        // 'close' event is fired only when a file descriptor is involved
-        output.on('close', function() {
-            console.log(archive.pointer() + ' total bytes');
-            console.log('archiver has been finalized and the output file descriptor has closed.');
 
-            fs.rmdirSync(main_folder,{recursive:true});
-            resolve(out_path);
-
-        });
         // good practice to catch warnings (ie stat failures and other non-blocking errors)
         archive.on('warning', function(err) {
             if (err.code === 'ENOENT') {
@@ -263,6 +252,19 @@ zipping = function (output_path){
         archive.pipe(output);
 
         archive.finalize();
+
+        archive.on('end', function (){
+            // listen for all archive data to be written
+            // 'close' event is fired only when a file descriptor is involved
+            output.on('close', function() {
+                console.log(archive.pointer() + ' total bytes');
+                console.log('archiver has been finalized and the output file descriptor has closed.');
+
+                fs.rmdirSync(main_folder,{recursive:true});
+
+                resolve(out_path);
+            });
+        });
     });
 
 }
