@@ -16,14 +16,12 @@ exports.yapexil2mef = async function (input_path, output_path='/tmp/yapexiltomef
     if(debug)
         console.log("START UNZIPPING ...");
 
-    console.log(createFolders(debug));
+    await createFolders(debug);
 
     let info = await readZip(input_path,debug);
-    console.log(info);
     if(info.metadata !== ''){
         let content = await generateContent(info);
         fs.writeFileSync(main_folder + 'Content.xml',content);
-        console.log(content);
     }
     if(debug)
         console.log("Start zipping...");
@@ -49,7 +47,6 @@ readZip = async function(pathFile,debug) {
 
     return new Promise( (resolve, reject) => {
         fs.createReadStream(pathFile).pipe(unzipper.Extract({ path: temp_path })).on('close',function () {
-            console.log("Close");
             let files = directory.files
             //TODO ADD debug!!
             for (let x in files){
@@ -188,13 +185,12 @@ getFilesInfo = function (fileName){
     }
 }
 
-createFolders = function (debug){
+createFolders = async function (debug){
     if(debug)
         console.log("Creating folders...");
 
     return new Promise((resolve, reject) => {
         for (let f in config.folders_name){
-            console.log(main_folder + config.folders_name[f]);
             fs.mkdir(main_folder + config.folders_name[f],  { recursive: true },err => {
                 if(err) throw err;
             });
@@ -212,7 +208,6 @@ generateContent = async function (info){
         //Open and read metadata.json
         fs.createReadStream(info.metadata).on('data', function (chunk) {
             let meta = JSON.parse(chunk.toString());
-            console.log(meta);
             let emp = "";
             let root = builder.create('Problem',
                 {version: '1.0', encoding: 'UTF-8', standalone: false});
@@ -233,7 +228,6 @@ generateContent = async function (info){
             }
             let skeleton = root.ele('Skeletons',{'Show': 'yes', 'xml:id':'skeletons'});
             for (let x of info.skeletons){
-                console.log(x);
                 skeleton.ele('Skeletons',{'Skeleton': x.filename, 'Show': 'yes',  'Extension': x.filename.split('.')[1], 'xml:id':'skeletons.' + x.name});
             }
             root.ele('Images',{'Fatal': emp, 'Warning': emp, 'xml:id':'images'});

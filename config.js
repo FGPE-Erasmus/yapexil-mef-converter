@@ -47,8 +47,7 @@ config.temp_info = {
     tests : [],
     solutions:[],
     skeletons: [],
-    images: [],
-    problem_root:[]
+    images: []
 }
 
 module.exports = config;
