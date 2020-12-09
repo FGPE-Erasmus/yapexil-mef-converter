@@ -56,110 +56,104 @@ readZip = async function(pathFile,debug) {
                     let folder = config.folders.find(_f => _f.name === file.folder);
 
                     if (folder !== undefined){
-                        if(file.name !== 'metadata.json'){
-                            if(file.folder === "embeddables"){
+                        if(file.folder === "embeddables"){
+                            if(config.imageExtensions.includes(file.extension)){ //Save IMAGE files
+                                files[x]
+                                    .stream()
+                                    .pipe(fs.createWriteStream(main_folder + folder.mef_img + file.name))
+                                    .on('error',reject)
+                                    .on('finish',resolve)
+                                informations['images'].push(file.name);
 
-                                if(config.imageExtensions.includes(file.extension)){ //Save IMAGE files
-                                    files[x]
-                                        .stream()
-                                        .pipe(fs.createWriteStream(main_folder + folder.mef_img + file.name))
-                                        .on('error',reject)
-                                        .on('finish',resolve)
-                                    informations['images'].push(file.name);
-
-                                }
-                                else { //Save OTHER files
-                                    files[x]
-                                        .stream()
-                                        .pipe(fs.createWriteStream(main_folder + folder.mef_other + file.name))
-                                        .on('error',reject)
-                                        .on('finish',resolve)
-                                    informations[folder.name] = file.name;
-                                }
                             }
-                            else{
-                                if(config.statementExtensions.includes(file.extension)){ //Save STATEMENT files
-                                    files[x]
-                                        .stream()
-                                        .pipe(fs.createWriteStream(main_folder + folder.mef + file.name))
-                                        .on('error',reject)
-                                        .on('finish',resolve)
-                                    informations[folder.name] = file.name;
-                                }
-                                else if (file.folder === 'tests'){ //Save and organize TESTS files
-                                    if(temp_test[file.nextfolder] === undefined){
-                                        temp_test[file.nextfolder] = {
-                                            name: 'T' + folderCountTest.toString(),
-                                            in: '',
-                                            out: '',
-                                            folder: 'T' + folderCountTest.toString() +'/'
-                                        }
-                                        folderCountTest ++;
-                                    }
-                                    if(file.name.includes('in'))
-                                        temp_test[file.nextfolder].in = file.name;
-                                    else
-                                        temp_test[file.nextfolder].out = file.name;
-
-                                    if(file.name.includes('in')) //Used only to not create duplicates
-                                        informations[folder.name].push(temp_test[file.nextfolder]);
-
-                                    fs.mkdir(main_folder + folder.mef + temp_test[file.nextfolder].folder, { recursive: true }, async (err) => {
-                                        if (err) throw err;
-                                        files[x]
-                                            .stream()
-                                            .pipe(fs.createWriteStream(main_folder + folder.mef + temp_test[file.nextfolder].folder + file.name))
-                                            .on('error',reject)
-                                            .on('finish',resolve)
-
-                                    });
-                                }
-                                else if(file.folder === 'skeletons'){
-                                    if(temp_skeleton[file.nextfolder] === undefined){
-                                        temp_skeleton[file.nextfolder] = {
-                                            name: 'T' + folderCountSkeleton.toString(),
-                                            filename: '',
-                                            folder: 'T' + folderCountSkeleton.toString() +'/'
-                                        }
-                                        folderCountSkeleton ++;
-                                    }
-
-                                    temp_skeleton[file.nextfolder].filename = file.name;
-                                    informations[folder.name].push(temp_skeleton[file.nextfolder]);
-
-                                    fs.mkdir(main_folder + folder.mef + temp_skeleton[file.nextfolder].folder, { recursive: true }, async (err) => {
-                                        if (err) throw err;
-                                        files[x]
-                                            .stream()
-                                            .pipe(fs.createWriteStream(main_folder + folder.mef + temp_skeleton[file.nextfolder].folder + file.name))
-                                            .on('error',reject)
-                                            .on('finish',resolve)
-
-                                    });
-                                }
-                                else{ //SEARCH FOR OTHER FILES
-                                    if (file.folder !== undefined){
-                                        files[x]
-                                            .stream()
-                                            .pipe(fs.createWriteStream(main_folder + folder.mef + file.name))
-                                            .on('error',reject)
-                                            .on('finish',resolve)
-                                        informations[file.folder].push(file.name);
-                                    }
-                                    if(debug)
-                                        console.log(main_folder + folder.mef + file.name);
-
-                                }
+                            else if (file.name !== "metadata.json"){ //Save OTHER files
+                                files[x]
+                                    .stream()
+                                    .pipe(fs.createWriteStream(main_folder + folder.mef_other + file.name))
+                                    .on('error',reject)
+                                    .on('finish',resolve)
+                                informations[folder.name] = file.name;
                             }
                         }
-                        else{
-                            if(file.folder === 'metadata.json' && file.name === 'metadata.json') {
-                                metadata_flag = true;
-
-                                fs.copyFileSync(temp_path + file.name, main_folder + file.name);
-
-                                informations['metadata'] = main_folder + file.name;
+                        else if (file.folder === "statements") {
+                            if (config.statementExtensions.includes(file.extension)) { //Save STATEMENT files
+                                files[x]
+                                    .stream()
+                                    .pipe(fs.createWriteStream(main_folder + folder.mef + file.name))
+                                    .on('error', reject)
+                                    .on('finish', resolve)
+                                informations[folder.name] = file.name;
                             }
+                        }
+                        else if (file.folder === 'tests'){ //Save and organize TESTS files
+                            if(temp_test[file.nextfolder] === undefined){
+                                temp_test[file.nextfolder] = {
+                                    name: 'T' + folderCountTest.toString(),
+                                    in: '',
+                                    out: '',
+                                    folder: 'T' + folderCountTest.toString() +'/',
+                                    metadata: ''
+                                }
+                                folderCountTest ++;
+                            }
+
+                            if(file.name.includes('in'))
+                                temp_test[file.nextfolder].in = file.name;
+                            else if(file.name.includes('out'))
+                                temp_test[file.nextfolder].out = file.name;
+                            else
+                                temp_test[file.nextfolder].metadata = main_folder + folder.mef + temp_test[file.nextfolder].folder + file.name;
+
+                            if(file.name.includes('in')) //Used only to not create duplicates
+                                informations[folder.name].push(temp_test[file.nextfolder]);
+
+                            fs.mkdir(main_folder + folder.mef + temp_test[file.nextfolder].folder, { recursive: true }, async (err) => {
+                                if (err) throw err;
+
+                                fs.copyFileSync(temp_path + files[x].path, main_folder + folder.mef + temp_test[file.nextfolder].folder + file.name);
+                            });
+                        }
+                        else if(file.folder === 'skeletons'){
+                            if(temp_skeleton[file.nextfolder] === undefined){
+                                temp_skeleton[file.nextfolder] = {
+                                    name: 'T' + folderCountSkeleton.toString(),
+                                    filename: '',
+                                    folder: 'T' + folderCountSkeleton.toString() +'/'
+                                }
+                                folderCountSkeleton ++;
+                            }
+
+                            temp_skeleton[file.nextfolder].filename = file.name;
+                            informations[folder.name].push(temp_skeleton[file.nextfolder]);
+
+                            fs.mkdir(main_folder + folder.mef + temp_skeleton[file.nextfolder].folder, { recursive: true }, async (err) => {
+                                if (err) throw err;
+                                files[x]
+                                    .stream()
+                                    .pipe(fs.createWriteStream(main_folder + folder.mef + temp_skeleton[file.nextfolder].folder + file.name))
+                                    .on('error',reject)
+                                    .on('finish',resolve)
+
+                            });
+                        }
+                        else if(file.folder === 'metadata.json' && file.name === 'metadata.json') {
+                            metadata_flag = true;
+
+                            fs.copyFileSync(temp_path + file.name, main_folder + file.name);
+
+                            informations['metadata'] = main_folder + file.name;
+                        }
+                        else if (file.folder !== 'metadata.json' && file.name !== 'metadata.json') { //SEARCH FOR OTHER FILES
+                            if (file.folder !== undefined){
+                                files[x]
+                                    .stream()
+                                    .pipe(fs.createWriteStream(main_folder + folder.mef + file.name))
+                                    .on('error',reject)
+                                    .on('finish',resolve)
+                                informations[file.folder].push(file.name);
+                            }
+                            if(debug)
+                                console.log(main_folder + folder.mef + file.name);
                         }
                     }
                 }
@@ -220,11 +214,17 @@ generateContent = async function (info){
             root.ele('Solutions',{'Fatal': emp, 'Warning': emp, 'xml:id':'solutions'});
             let test = root.ele('Tests',{'Definition': emp, 'Fatal': emp, 'Warning': emp, 'xml:id':'tests'});
             for (let x of info.tests){
-                test.ele('Test',{'Fatal': emp, 'Feedback': emp, 'Points': emp,
-                    'Result': emp, 'Show': emp, 'SolutionErrors': emp,
-                    'Timeout': emp, 'Warning': emp, 'args': emp,
+                let content = fs.readFileSync(x.metadata);
+                let meta_test = JSON.parse(content.toString());
+
+                test.ele('Test',{'Fatal': emp, 'Feedback': emp, 'Points': meta_test.weight,
+                    'Result': emp, 'Show': meta_test.visible === true ? "Yes":"No", 'SolutionErrors': emp,
+                    'Timeout': meta_test.arguments.indexOf('--timeout') !== -1 ? meta_test.arguments[meta_test.arguments.indexOf('--timeout') + 1] : emp,
+                    'Warning': emp, 'args': meta_test.arguments.join(' '),
                     'context': emp, 'input': x.in, 'output': x.out,
                     'xml:id':'tests.' + x.name});
+
+                fs.unlinkSync(x.metadata);
             }
             let skeleton = root.ele('Skeletons',{'Show': 'yes', 'xml:id':'skeletons'});
             for (let x of info.skeletons){
@@ -234,6 +234,8 @@ generateContent = async function (info){
 
             let xml = root.end({pretty:true});
             fs.unlinkSync(main_folder + 'metadata.json');
+
+            console.log(xml);
             resolve(xml);
         });
     });
