@@ -322,7 +322,6 @@ async function processTestsets(archive, metadata, testsets, options) {
     const subentries = {};
     for (const pathname of Object.keys(entries)) {
       const subpathname = pathname.substr(`testsets/${id}/`.length);
-      console.log(subpathname);
       if (subpathname.startsWith('tests/')) {
         const testId = subpathname.substring('tests/'.length, subpathname.indexOf('/', 'tests/'.length + 1));
         subentries[testId] = subentries[testId] || [];
@@ -332,7 +331,6 @@ async function processTestsets(archive, metadata, testsets, options) {
         });
       }
     }
-    console.log(subentries);
     await processTests(archive, metadata, subentries, options, name, weight, visible);
   }
 }
