@@ -1,7 +1,8 @@
 {
   "name": "yapexil-mef-converter",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
+  "private": false,
   "main": "index.js",
   "scripts": {
     "clean": "rimraf lib",
@@ -37,8 +38,6 @@
   "homepage": "https://github.com/FGPE-Erasmus/yapexil-mef-converter#readme",
   "dependencies": {
     "archiver": "^5.1.0",
-    "etl": "^0.6.12",
-    "stream": "0.0.2",
     "unzipper": "^0.10.11",
     "xmlbuilder": "^15.1.1"
   },
@@ -53,7 +52,6 @@
     "eslint": "^7.21.0",
     "eslint-plugin-import": "^2.22.1",
     "mocha": "^8.3.0",
-    "nyc": "^15.1.0",
     "rimraf": "^3.0.2"
   }
 }

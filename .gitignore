@@ -41,4 +41,5 @@ package-lock.json
 yarn.lock
 
 others
+output.zip
 .DS_Store
