@@ -3,15 +3,58 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": "",
-  "keywords": [],
-  "author": "Ciro Giuseppe De Vita, Gennaro Mellone",
-  "license": "ISC",
+  "scripts": {
+    "clean": "rimraf lib",
+    "test": "npm run lint && npm run cover",
+    "test:prod": "cross-env BABEL_ENV=production npm run test",
+    "test:only": "mocha --require @babel/register --recursive",
+    "test:watch": "npm test -- --watch",
+    "test:examples": "node examples/",
+    "cover": "nyc --check-coverage npm run test:only",
+    "lint": "eslint src test",
+    "build": "cross-env BABEL_ENV=production babel src --out-dir lib",
+    "prepublish": "npm run clean && npm run lint && npm run test && npm run build"
+  },
+  "author": "Ciro Giuseppe De Vita, Gennaro Mellone, José C. Paiva",
+  "license": "GPLv3",
+  "keywords": [
+    "node",
+    "javascript",
+    "YAPExIL",
+    "MEF",
+    "converter"
+  ],
+  "files": [
+    "lib",
+    "src"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FGPE-Erasmus/yapexil-mef-converter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/FGPE-Erasmus/yapexil-mef-converter/issues"
+  },
+  "homepage": "https://github.com/FGPE-Erasmus/yapexil-mef-converter#readme",
   "dependencies": {
     "archiver": "^5.1.0",
     "etl": "^0.6.12",
     "stream": "0.0.2",
     "unzipper": "^0.10.11",
     "xmlbuilder": "^15.1.1"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.13.0",
+    "@babel/core": "^7.13.8",
+    "@babel/preset-env": "^7.13.9",
+    "@babel/register": "^7.13.8",
+    "babel-eslint": "^10.1.0",
+    "chai": "^4.3.1",
+    "cross-env": "^7.0.3",
+    "eslint": "^7.21.0",
+    "eslint-plugin-import": "^2.22.1",
+    "mocha": "^8.3.0",
+    "nyc": "^15.1.0",
+    "rimraf": "^3.0.2"
   }
 }
