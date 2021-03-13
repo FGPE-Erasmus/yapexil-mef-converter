@@ -27,8 +27,6 @@ exports.yapexil2mef = async function (input_path, output_path='/tmp/yapexiltomef
         console.log("Start zipping...");
 
     let zip = await zipping(output_path);
-    console.log(zip);
-    console.log("FINISH!");
 
     return zip;
 }
@@ -235,7 +233,7 @@ generateContent = async function (info){
             let xml = root.end({pretty:true});
             fs.unlinkSync(main_folder + 'metadata.json');
 
-            console.log(xml);
+            //console.log(xml);
             resolve(xml);
         });
     });
@@ -281,8 +279,8 @@ zipping = async function (output_path){
             // listen for all archive data to be written
             // 'close' event is fired only when a file descriptor is involved
             output.on('close', function() {
-                console.log(archive.pointer() + ' total bytes');
-                console.log('archiver has been finalized and the output file descriptor has closed.');
+                //console.log(archive.pointer() + ' total bytes');
+                //console.log('archiver has been finalized and the output file descriptor has closed.');
 
                 fs.rmdirSync(main_folder,{recursive:true});
 
