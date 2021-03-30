@@ -1,9 +1,9 @@
 {
   "name": "yapexil-mef-converter",
-  "version": "1.0.1",
+  "version": "1.0.5",
   "description": "",
   "private": false,
-  "main": "index.js",
+  "main": "lib/index.js",
   "scripts": {
     "clean": "rimraf lib",
     "test": "npm run lint && npm run test:only",

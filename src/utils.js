@@ -35,3 +35,24 @@ export function getExtension(pathname) {
   }
   return extension;
 }
+
+export function map2MooshakDifficulty(difficulty) {
+  if (!difficulty) {
+    return '';
+  }
+  switch (difficulty.toLowerCase()) {
+    case 'beginner':
+      return 'VERY_EASY';
+    case 'easy':
+      return 'EASY';
+    case 'average':
+      return 'MEDIUM';
+    case 'hard':
+      return 'DIFFICULT';
+    case 'master':
+      return 'VERY_DIFFICULT';
+  
+    default:
+      return '';
+  }
+}

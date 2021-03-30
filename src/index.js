@@ -5,22 +5,21 @@ const builder = require('xmlbuilder');
 
 const { METADATA_FILENAME, YAPEXIL_FOLDER_NAMES } = require('./constants');
 const { DEFAULT_OPTIONS } = require('./default-options');
-const { toObject, extractValueOrDefault, getExtension } = require('./utils');
+const { toObject, extractValueOrDefault, getExtension, map2MooshakDifficulty } = require('./utils');
 
-
-export async function yapexil2mef(pathToZip, outputPath = 'output.zip', options = {}) {
+async function yapexil2mef(pathToZip, outputPath = 'output.zip', options = {}) {
   options = Object.assign({}, DEFAULT_OPTIONS, options);
   const zip = fs.createReadStream(pathToZip);
   return await yapexil2mefStream(zip, fs.createWriteStream(outputPath), options);
 }
 
-export async function yapexil2mefStream(zipStream, outputStream, options = {}) {
+async function yapexil2mefStream(zipStream, outputStream, options = {}) {
   options = Object.assign({}, DEFAULT_OPTIONS, options);
   const { metadata, catalog } = await parseZipEntries(zipStream, options);
   const archive = createArchive(outputStream);
-  /* await processDynamicCorrectors(archive, metadata, catalog['dynamic-correctors'], options);
+  await processDynamicCorrectors(archive, metadata, catalog['dynamic-correctors'], options);
   await processEmbeddables(archive, metadata, catalog.embeddables, options);
-  await processFeedbackGenerators(archive, metadata, catalog['feedback-generators'], options); */
+  await processFeedbackGenerators(archive, metadata, catalog['feedback-generators'], options);
   await processInstructions(archive, metadata, catalog.instructions, options);
   await processLibraries(archive, metadata, catalog.libraries, options);
   await processSkeletons(archive, metadata, catalog.skeletons, options);
@@ -38,7 +37,7 @@ export async function yapexil2mefStream(zipStream, outputStream, options = {}) {
 async function parseZipEntries(zipStream, options) {
   let metadata = {};
   const catalog = {};
-  const zipEntries = zipStream.pipe(unzipper.Parse({forceStream: true}));
+  const zipEntries = zipStream.pipe(unzipper.Parse({ forceStream: true }));
   for await (const entry of zipEntries) {
     const fileName = entry.path;
     const type = entry.type;
@@ -51,7 +50,10 @@ async function parseZipEntries(zipStream, options) {
       if ((match = fileName.match(new RegExp('^(' + YAPEXIL_FOLDER_NAMES.join('|') + ')/([^/]+)/', 'i')))) {
         catalog[match[1]] = catalog[match[1]] || [];
         catalog[match[1]][match[2]] = catalog[match[1]][match[2]] || [];
-        catalog[match[1]][match[2]].push(entry);
+        catalog[match[1]][match[2]].push({
+          path: fileName,
+          buffer: await entry.buffer()
+        });
       } else if (fileName === METADATA_FILENAME) {
         const content = await entry.buffer();
         metadata = { ...JSON.parse(content.toString()) };
@@ -83,9 +85,9 @@ async function processDynamicCorrectors(archive, metadata, dynamicCorrectors, op
     if (!rootEntry) {
       continue;
     }
-    const submetadata = JSON.parse((await rootEntry.buffer()).toString());
+    const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`dynamic-correctors/${id}/${submetadata.pathname}`];
-    archive.append(await targetEntry.buffer(), { name: submetadata.pathname });
+    archive.append(targetEntry.buffer, { name: submetadata.pathname });
     commands.push(submetadata.command_line);
   }
   metadata.Dynamic_corrector = commands.join(' && ');
@@ -102,11 +104,11 @@ async function processEmbeddables(archive, metadata, embeddables, options) {
     if (!rootEntry) {
       continue;
     }
-    const submetadata = JSON.parse((await rootEntry.buffer()).toString());
+    const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`embeddables/${id}/${submetadata.pathname}`];
     const extension = getExtension(submetadata.pathname);
     if (options.imageExtensions.includes(extension)) {
-      archive.append(await targetEntry.buffer(), { name: `images/${submetadata.pathname}` });
+      archive.append(targetEntry.buffer, { name: `images/${submetadata.pathname}` });
     }
   }
 }
@@ -128,9 +130,9 @@ async function processInstructions(archive, metadata, instructions, options) {
     if (!rootEntry) {
       continue;
     }
-    const submetadata = JSON.parse((await rootEntry.buffer()).toString());
+    const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`instructions/${id}/${submetadata.pathname}`];
-    archive.append(await targetEntry.buffer(), { name: submetadata.pathname });
+    archive.append(targetEntry.buffer, { name: submetadata.pathname });
   }
 }
 
@@ -144,9 +146,9 @@ async function processLibraries(archive, metadata, libraries, options) {
     if (!rootEntry) {
       continue;
     }
-    const submetadata = JSON.parse((await rootEntry.buffer()).toString());
+    const submetadata = JSON.parse(rootEntry.toString());
     const targetEntry = entries[`libraries/${id}/${submetadata.pathname}`];
-    archive.append(await targetEntry.buffer(), { name: submetadata.pathname });
+    archive.append(targetEntry.buffer, { name: submetadata.pathname });
   }
 }
 
@@ -162,10 +164,10 @@ async function processSkeletons(archive, metadata, skeletons, options) {
     if (!rootEntry) {
       continue;
     }
-    const submetadata = JSON.parse((await rootEntry.buffer()).toString());
+    const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`skeletons/${id}/${submetadata.pathname}`];
     const name = `SK${i++}`;
-    archive.append(await targetEntry.buffer(), { name: `skeletons/${name}/${submetadata.pathname}` });
+    archive.append(targetEntry.buffer, { name: `skeletons/${name}/${submetadata.pathname}` });
     metadata.skeletons.push({
       Skeleton: submetadata.pathname,
       Show: 'yes',
@@ -187,15 +189,10 @@ async function processSolutions(archive, metadata, solutions, options) {
     if (!rootEntry) {
       continue;
     }
-    const submetadata = JSON.parse((await rootEntry.buffer()).toString());
+    const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`solutions/${id}/${submetadata.pathname}`];
 
-    const name = `S${i++}`;
-    archive.append(await targetEntry.buffer(), { name: `solutions/${name}/${submetadata.pathname}` });
-    metadata.solutions.push({
-      Solution: submetadata.pathname,
-      'xml:id': `solutions.${name}`
-    });
+    await archive.append(targetEntry.buffer, { name: `solutions/${submetadata.pathname}` });
   }
 }
 
@@ -210,10 +207,10 @@ async function processStatements(archive, metadata, statements, options) {
     if (!rootEntry) {
       continue;
     }
-    const submetadata = JSON.parse((await rootEntry.buffer()).toString());
+    const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`statements/${id}/${submetadata.pathname}`];
     
-    archive.append(await targetEntry.buffer(), { name: submetadata.pathname });
+    archive.append(targetEntry.buffer, { name: submetadata.pathname });
 
     metadata.statements[submetadata.format] = submetadata.pathname;
   }
@@ -230,10 +227,10 @@ async function processTemplates(archive, metadata, templates, options) {
     if (!rootEntry) {
       continue;
     }
-    const submetadata = JSON.parse((await rootEntry.buffer()).toString());
+    const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`templates/${id}/${submetadata.pathname}`];
     
-    archive.append(await targetEntry.buffer(), { name: submetadata.pathname });
+    archive.append(targetEntry.buffer, { name: submetadata.pathname });
   }
 }
 
@@ -255,9 +252,9 @@ async function processStaticCorrectors(archive, metadata, staticCorrectors, opti
     if (!rootEntry) {
       continue;
     }
-    const submetadata = JSON.parse((await rootEntry.buffer()).toString());
+    const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`static-correctors/${id}/${submetadata.pathname}`];
-    archive.append(await targetEntry.buffer(), { name: submetadata.pathname });
+    archive.append(targetEntry.buffer, { name: submetadata.pathname });
     commands.push(submetadata.command_line);
   }
   metadata.Static_corrector = commands.join(' && ');
@@ -275,20 +272,29 @@ async function processTests(archive, metadata, tests, options, setPrefix = '', s
     if (!rootEntry) {
       continue;
     }
-    const submetadata = JSON.parse((await rootEntry.buffer()).toString());
+    const submetadata = JSON.parse(rootEntry.buffer.toString());
     const name = `${setPrefix}T${i++}`;
     const inputEntry = entries[`tests/${id}/${submetadata.input}`];
-    archive.append(await inputEntry.buffer(), {
+    archive.append(inputEntry.buffer, {
       name: `tests/${name}/${submetadata.input}`
     });
     const outputEntry = entries[`tests/${id}/${submetadata.output}`];
-    archive.append(await outputEntry.buffer(), {
+    archive.append(outputEntry.buffer, {
       name: `tests/${name}/${submetadata.output}`
     });
+    let points = 0;
+    if (setWeight > 0 && submetadata.weight >= 0) {
+      points = submetadata.weight / setWeight;
+    } else {
+      points = submetadata.weight;
+    }
+    if (points > 0 && points < 1) {
+      points = Math.round(points * 100);
+    }
     metadata.tests.push({
       'xml:id': `tests.${name}`,
       Feedback: '',
-      Points: setWeight > 0 && submetadata.weight >= 0 ? submetadata.weight / setWeight : submetadata.weight,
+      Points: points,
       Result: '',
       Show: setVisible && submetadata.visible === true ? 'Yes' : 'No',
       SolutionErrors: '',
@@ -314,7 +320,7 @@ async function processTestsets(archive, metadata, testsets, options) {
     if (!rootEntry) {
       continue;
     }
-    const submetadata = JSON.parse((await rootEntry.buffer()).toString());
+    const submetadata = JSON.parse(rootEntry.buffer.toString());
     const weight = submetadata.weight;
     const visible = submetadata.visible;
     const name = `S${i++}`;
@@ -345,10 +351,10 @@ async function generateRootXml(archive, metadata, options) {
     xmlns: "http://www.ncc.up.pt/mooshak/",
     Color: "#000000",
     Description: metadata.statements.html || metadata.statements.txt || metadata.statements.markdown || '',
-    Difficulty: metadata.difficulty,
+    Difficulty: map2MooshakDifficulty(metadata.difficulty),
     Editor_kind: 'CODE',
     Environment: '',
-    Name: `${metadata.module} - ${metadata.title}`,
+    Name: metadata.module ? `${metadata.module} - ${metadata.title}` : metadata.title,
     Original_location: `https://fgpe-project.usz.edu.pl/authorkit/ui/exercises/${metadata.id}`,
     PDF: metadata.statements.pdf || '',
     Program: '',
@@ -358,7 +364,7 @@ async function generateRootXml(archive, metadata, options) {
     Static_corrector: metadata.Static_corrector,
     Timeout: extractValueOrDefault(metadata.platform, '--timeout', ''),
     Title: metadata.title,
-    Type: metadata.type,
+    Type: '', // metadata.type
     Fatal: '',
     Warning: '',
   });
@@ -375,24 +381,21 @@ async function generateRootXml(archive, metadata, options) {
     }
   }
   
-  const solutionsEle = root.ele('Solutions', {
-    'xml:id': 'solutions',
-    Fatal: '',
-    Warning: ''
-  });
-  if (metadata.solutions) {
-    for (const solution of metadata.solutions) {
-      solutionsEle.ele('Solutions', solution);
-    }
-  }
-  
   const skeletonsEle = root.ele("Skeletons", {
     Show: 'yes',
     'xml:id': 'skeletons'
   });
-  for (const skeleton of metadata.skeletons) {
-    skeletonsEle.ele('Skeletons', skeleton);
+  if (metadata.skeletons) {
+    for (const skeleton of metadata.skeletons) {
+      skeletonsEle.ele('Skeleton', skeleton);
+    }
   }
+  
+  root.ele('Solutions', {
+    'xml:id': 'solutions',
+    Fatal: '',
+    Warning: ''
+  });
 
   root.ele('Images', {
     Fatal: '',
@@ -402,5 +405,10 @@ async function generateRootXml(archive, metadata, options) {
 
   const xml = root.end({ pretty: true });
 
-  archive.append(Buffer.from(xml, 'utf-8'), { name: 'Content.xml' });
+  await archive.append(Buffer.from(xml, 'utf-8'), { name: 'Content.xml' });
 }
+
+module.exports = {
+  yapexil2mef,
+  yapexil2mefStream
+};
