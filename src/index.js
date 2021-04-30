@@ -5,7 +5,7 @@ const builder = require('xmlbuilder');
 
 const { METADATA_FILENAME, YAPEXIL_FOLDER_NAMES } = require('./constants');
 const { DEFAULT_OPTIONS } = require('./default-options');
-const { toObject, extractValueOrDefault, getExtension, map2MooshakDifficulty } = require('./utils');
+const { toObject, extractValueOrDefault, getExtension, map2MooshakDifficulty, applyTemplate, map2MooshakType } = require('./utils');
 
 async function yapexil2mef(pathToZip, outputPath = 'output.zip', options = {}) {
   options = Object.assign({}, DEFAULT_OPTIONS, options);
@@ -15,23 +15,35 @@ async function yapexil2mef(pathToZip, outputPath = 'output.zip', options = {}) {
 
 async function yapexil2mefStream(zipStream, outputStream, options = {}) {
   options = Object.assign({}, DEFAULT_OPTIONS, options);
+
+  // unzip & parse YAPExIL archive
   const { metadata, catalog } = await parseZipEntries(zipStream, options);
+
+  // build new catalog
+  const newCatalog = {};
+  await processDynamicCorrectors(newCatalog, metadata, catalog['dynamic-correctors'], options);
+  await processEmbeddables(newCatalog, metadata, catalog.embeddables, options);
+  await processFeedbackGenerators(newCatalog, metadata, catalog['feedback-generators'], options);
+  await processInstructions(newCatalog, metadata, catalog.instructions, options);
+  await processLibraries(newCatalog, metadata, catalog.libraries, options);
+  await processSkeletons(newCatalog, metadata, catalog.skeletons, options);
+  await processSolutions(newCatalog, metadata, catalog.solutions, options);
+  await processStatements(newCatalog, metadata, catalog.statements, options);
+  await processStaticCorrectors(newCatalog, metadata, catalog['static-correctors'], options);
+  await processTemplates(newCatalog, metadata, catalog.templates, options);
+  await processTestGenerators(newCatalog, metadata, catalog['test-generators'], options);
+  await processTestsets(newCatalog, metadata, catalog.testsets, options);
+  await processTests(newCatalog, metadata, catalog.tests, options);
+  await generateRootXml(newCatalog, metadata, options);
+
+  // create archive
   const archive = createArchive(outputStream);
-  await processDynamicCorrectors(archive, metadata, catalog['dynamic-correctors'], options);
-  await processEmbeddables(archive, metadata, catalog.embeddables, options);
-  await processFeedbackGenerators(archive, metadata, catalog['feedback-generators'], options);
-  await processInstructions(archive, metadata, catalog.instructions, options);
-  await processLibraries(archive, metadata, catalog.libraries, options);
-  await processSkeletons(archive, metadata, catalog.skeletons, options);
-  await processSolutions(archive, metadata, catalog.solutions, options);
-  await processStatements(archive, metadata, catalog.statements, options);
-  await processStaticCorrectors(archive, metadata, catalog['static-correctors'], options);
-  await processTemplates(archive, metadata, catalog.templates, options);
-  await processTestGenerators(archive, metadata, catalog['test-generators'], options);
-  await processTestsets(archive, metadata, catalog.testsets, options);
-  await processTests(archive, metadata, catalog.tests, options);
-  await generateRootXml(archive, metadata, options);
-  await archive.finalize();
+  for (const entryKey in newCatalog) {
+    if (Object.hasOwnProperty.call(newCatalog, entryKey)) {
+      archive.append(newCatalog[entryKey], { name: entryKey });
+    }
+  }
+  return await archive.finalize();
 }
 
 async function parseZipEntries(zipStream, options) {
@@ -74,7 +86,7 @@ function createArchive(outputStream) {
   return archive;
 }
 
-async function processDynamicCorrectors(archive, metadata, dynamicCorrectors, options) {
+async function processDynamicCorrectors(newCatalog, metadata, dynamicCorrectors, options) {
   if (!dynamicCorrectors) {
     return;
   }
@@ -87,13 +99,13 @@ async function processDynamicCorrectors(archive, metadata, dynamicCorrectors, op
     }
     const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`dynamic-correctors/${id}/${submetadata.pathname}`];
-    archive.append(targetEntry.buffer, { name: submetadata.pathname });
+    newCatalog[submetadata.pathname] = targetEntry.buffer;
     commands.push(submetadata.command_line);
   }
   metadata.Dynamic_corrector = commands.join(' && ');
 }
 
-async function processEmbeddables(archive, metadata, embeddables, options) {
+async function processEmbeddables(newCatalog, metadata, embeddables, options) {
   if (!embeddables) {
     return;
   }
@@ -108,19 +120,19 @@ async function processEmbeddables(archive, metadata, embeddables, options) {
     const targetEntry = entries[`embeddables/${id}/${submetadata.pathname}`];
     const extension = getExtension(submetadata.pathname);
     if (options.imageExtensions.includes(extension)) {
-      archive.append(targetEntry.buffer, { name: `images/${submetadata.pathname}` });
+      newCatalog[`images/${submetadata.pathname}`] = targetEntry.buffer;
     }
   }
 }
 
-async function processFeedbackGenerators(archive, metadata, feedbackGenerators, options) {
+async function processFeedbackGenerators(newCatalog, metadata, feedbackGenerators, options) {
   if (!feedbackGenerators) {
     return;
   }
   // Do NOTHING !
 }
 
-async function processInstructions(archive, metadata, instructions, options) {
+async function processInstructions(newCatalog, metadata, instructions, options) {
   if (!instructions) {
     return;
   }
@@ -132,11 +144,11 @@ async function processInstructions(archive, metadata, instructions, options) {
     }
     const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`instructions/${id}/${submetadata.pathname}`];
-    archive.append(targetEntry.buffer, { name: submetadata.pathname });
+    newCatalog[submetadata.pathname] = targetEntry.buffer;
   }
 }
 
-async function processLibraries(archive, metadata, libraries, options) {
+async function processLibraries(newCatalog, metadata, libraries, options) {
   if (!libraries) {
     return;
   }
@@ -148,11 +160,11 @@ async function processLibraries(archive, metadata, libraries, options) {
     }
     const submetadata = JSON.parse(rootEntry.toString());
     const targetEntry = entries[`libraries/${id}/${submetadata.pathname}`];
-    archive.append(targetEntry.buffer, { name: submetadata.pathname });
+    newCatalog[submetadata.pathname] = targetEntry.buffer;
   }
 }
 
-async function processSkeletons(archive, metadata, skeletons, options) {
+async function processSkeletons(newCatalog, metadata, skeletons, options) {
   if (!skeletons) {
     return;
   }
@@ -167,7 +179,7 @@ async function processSkeletons(archive, metadata, skeletons, options) {
     const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`skeletons/${id}/${submetadata.pathname}`];
     const name = `SK${i++}`;
-    archive.append(targetEntry.buffer, { name: `skeletons/${name}/${submetadata.pathname}` });
+    newCatalog[`skeletons/${name}/${submetadata.pathname}`] = targetEntry.buffer;
     metadata.skeletons.push({
       Skeleton: submetadata.pathname,
       Show: 'yes',
@@ -177,7 +189,7 @@ async function processSkeletons(archive, metadata, skeletons, options) {
   }
 }
 
-async function processSolutions(archive, metadata, solutions, options) {
+async function processSolutions(newCatalog, metadata, solutions, options) {
   if (!solutions) {
     return;
   }
@@ -192,11 +204,13 @@ async function processSolutions(archive, metadata, solutions, options) {
     const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`solutions/${id}/${submetadata.pathname}`];
 
-    await archive.append(targetEntry.buffer, { name: `solutions/${submetadata.pathname}` });
+    newCatalog[`solutions/${submetadata.pathname}`] = targetEntry.buffer;
+
+    metadata.solutions.push(`solutions/${submetadata.pathname}`);
   }
 }
 
-async function processStatements(archive, metadata, statements, options) {
+async function processStatements(newCatalog, metadata, statements, options) {
   if (!statements) {
     return;
   }
@@ -210,17 +224,16 @@ async function processStatements(archive, metadata, statements, options) {
     const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`statements/${id}/${submetadata.pathname}`];
     
-    archive.append(targetEntry.buffer, { name: submetadata.pathname });
+    newCatalog[submetadata.pathname] = targetEntry.buffer;
 
     metadata.statements[submetadata.format] = submetadata.pathname;
   }
 }
 
-async function processTemplates(archive, metadata, templates, options) {
+async function processTemplates(newCatalog, metadata, templates, options) {
   if (!templates) {
     return;
   }
-  let i = 1;
   for (const id of Object.keys(templates)) {
     const entries = toObject(templates[id], 'path');
     const rootEntry = entries[`templates/${id}/${METADATA_FILENAME}`];
@@ -229,19 +242,38 @@ async function processTemplates(archive, metadata, templates, options) {
     }
     const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`templates/${id}/${submetadata.pathname}`];
-    
-    archive.append(targetEntry.buffer, { name: submetadata.pathname });
+
+    const extension = getExtension(submetadata.pathname);
+    metadata.skeletons.forEach(skeleton => {
+      if (skeleton.Extension === extension) {
+        const skeletonEntryKey = skeleton['xml:id'].replace('.', '/') + '/' + skeleton.Skeleton;
+        newCatalog[skeletonEntryKey] = Buffer.from(applyTemplate(
+          targetEntry.buffer.toString('utf8'),
+          newCatalog[skeletonEntryKey].toString('utf8')
+        ), 'utf8');
+      }
+    });
+
+    metadata.solutions.forEach(solution => {
+      const solutionExtension = getExtension(solution);
+      if (solutionExtension === extension) {
+        newCatalog[solution] = Buffer.from(applyTemplate(
+          targetEntry.buffer.toString('utf8'),
+          newCatalog[solution].toString('utf8')
+        ), 'utf8');
+      }
+    });
   }
 }
 
-async function processTestGenerators(archive, metadata, testGenerators, options) {
+async function processTestGenerators(newCatalog, metadata, testGenerators, options) {
   if (!testGenerators) {
     return;
   }
   // Do NOTHING !
 }
 
-async function processStaticCorrectors(archive, metadata, staticCorrectors, options) {
+async function processStaticCorrectors(newCatalog, metadata, staticCorrectors, options) {
   if (!staticCorrectors) {
     return;
   }
@@ -254,13 +286,13 @@ async function processStaticCorrectors(archive, metadata, staticCorrectors, opti
     }
     const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`static-correctors/${id}/${submetadata.pathname}`];
-    archive.append(targetEntry.buffer, { name: submetadata.pathname });
+    newCatalog[submetadata.pathname] = targetEntry.buffer;
     commands.push(submetadata.command_line);
   }
   metadata.Static_corrector = commands.join(' && ');
 }
 
-async function processTests(archive, metadata, tests, options, setPrefix = '', setWeight = -1, setVisible = true) {
+async function processTests(newCatalog, metadata, tests, options, setPrefix = '', setWeight = -1, setVisible = true) {
   if (!tests) {
     return;
   }
@@ -275,13 +307,9 @@ async function processTests(archive, metadata, tests, options, setPrefix = '', s
     const submetadata = JSON.parse(rootEntry.buffer.toString());
     const name = `${setPrefix}T${i++}`;
     const inputEntry = entries[`tests/${id}/${submetadata.input}`];
-    archive.append(inputEntry.buffer, {
-      name: `tests/${name}/${submetadata.input}`
-    });
+    newCatalog[`tests/${name}/${submetadata.input}`] = inputEntry.buffer;
     const outputEntry = entries[`tests/${id}/${submetadata.output}`];
-    archive.append(outputEntry.buffer, {
-      name: `tests/${name}/${submetadata.output}`
-    });
+    newCatalog[`tests/${name}/${submetadata.output}`] = outputEntry.buffer;
     let points = 0;
     if (setWeight > 0 && submetadata.weight >= 0) {
       points = submetadata.weight / setWeight;
@@ -309,7 +337,7 @@ async function processTests(archive, metadata, tests, options, setPrefix = '', s
   }
 }
 
-async function processTestsets(archive, metadata, testsets, options) {
+async function processTestsets(newCatalog, metadata, testsets, options) {
   if (!testsets) {
     return;
   }
@@ -337,11 +365,11 @@ async function processTestsets(archive, metadata, testsets, options) {
         });
       }
     }
-    await processTests(archive, metadata, subentries, options, name, weight, visible);
+    await processTests(newCatalog, metadata, subentries, options, name, weight, visible);
   }
 }
 
-async function generateRootXml(archive, metadata, options) {
+async function generateRootXml(newCatalog, metadata, options) {
   const root = builder.create("Problem", {
     version: "1.0",
     encoding: "UTF-8",
@@ -352,7 +380,7 @@ async function generateRootXml(archive, metadata, options) {
     Color: "#000000",
     Description: metadata.statements.html || metadata.statements.txt || metadata.statements.markdown || '',
     Difficulty: map2MooshakDifficulty(metadata.difficulty),
-    Editor_kind: 'CODE',
+    Editor_kind: map2MooshakType(metadata.type),
     Environment: '',
     Name: metadata.module ? `${metadata.module} - ${metadata.title}` : metadata.title,
     Original_location: `https://fgpe-project.usz.edu.pl/authorkit/ui/exercises/${metadata.id}`,
@@ -364,7 +392,7 @@ async function generateRootXml(archive, metadata, options) {
     Static_corrector: metadata.Static_corrector,
     Timeout: extractValueOrDefault(metadata.platform, '--timeout', ''),
     Title: metadata.title,
-    Type: '', // metadata.type
+    Type: '',
     Fatal: '',
     Warning: '',
   });
@@ -405,7 +433,7 @@ async function generateRootXml(archive, metadata, options) {
 
   const xml = root.end({ pretty: true });
 
-  await archive.append(Buffer.from(xml, 'utf-8'), { name: 'Content.xml' });
+  newCatalog['Content.xml'] = Buffer.from(xml, 'utf-8');
 }
 
 module.exports = {

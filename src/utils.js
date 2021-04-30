@@ -56,3 +56,70 @@ export function map2MooshakDifficulty(difficulty) {
       return '';
   }
 }
+
+export function map2MooshakType(type) {
+  if (!type) {
+    return 'CODE';
+  }
+  switch (type.toLowerCase()) {
+    case 'extension':
+      return 'CODE';
+    case 'improvement':
+      return 'CODE';
+    case 'bug_fix':
+      return 'CODE';
+    case 'fill_in_gaps':
+      return 'FILL_IN_GAPS';
+    case 'sort_blocks':
+      return 'SORT_BLOCKS';
+    case 'spot_bug':
+      return 'SPOT_BUG';
+  
+    default:
+      return 'CODE';
+  }
+}
+
+export function applyTemplate(template, code = '') {
+  let match;
+  while ((match = /^([\ ]*){{[\ ]*code[\ ]*}}/gim.exec(template))) {
+    const indent = match[1];
+    template = template.replace(match[0], indentString(code, indent.length));
+  }
+  while ((match = /{{[\ ]*code[\ ]*}}/gi.exec(template))) {
+    template = template.replace(match[0], code);
+  }
+  return template;
+}
+
+export function indentString(string, count = 1, options = {}) {
+	const {
+		indent = ' ',
+		includeEmptyLines = false
+	} = options;
+	if (typeof string !== 'string') {
+		throw new TypeError(
+			`Expected \`input\` to be a \`string\`, got \`${typeof string}\``
+		);
+	}
+	if (typeof count !== 'number') {
+		throw new TypeError(
+			`Expected \`count\` to be a \`number\`, got \`${typeof count}\``
+		);
+	}
+	if (count < 0) {
+		throw new RangeError(
+			`Expected \`count\` to be at least 0, got \`${count}\``
+		);
+	}
+	if (typeof indent !== 'string') {
+		throw new TypeError(
+			`Expected \`options.indent\` to be a \`string\`, got \`${typeof indent}\``
+		);
+	}
+	if (count === 0) {
+		return string;
+	}
+	const regex = includeEmptyLines ? /^/gm : /^(?!\s*$)/gm;
+	return string.replace(regex, indent.repeat(count));
+}
