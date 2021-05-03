@@ -92,6 +92,36 @@ export function applyTemplate(template, code = '') {
   return template;
 }
 
+export function correctorFrom(commands) {
+  let corrector = `
+  #!/bin/sh
+
+  res=0
+  mark=255
+  `;
+  for (const command of commands) {
+    corrector = corrector + `
+    ${command}
+    status=$?
+    if [ $status -gt $res ]
+    then
+      if [ $status -gt 127 ]
+      then
+        if [ $status -lt $mark ]
+        then
+          mark=$status
+        fi
+      else
+        res=$status
+      fi
+    fi
+    `;
+  }
+  return corrector + `
+  [ $res -eq 0 ] && exit $mark || exit $status
+  `;
+}
+
 export function indentString(string, count = 1, options = {}) {
 	const {
 		indent = ' ',

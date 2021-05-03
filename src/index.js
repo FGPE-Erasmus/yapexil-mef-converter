@@ -5,7 +5,15 @@ const builder = require('xmlbuilder');
 
 const { METADATA_FILENAME, YAPEXIL_FOLDER_NAMES } = require('./constants');
 const { DEFAULT_OPTIONS } = require('./default-options');
-const { toObject, extractValueOrDefault, getExtension, map2MooshakDifficulty, applyTemplate, map2MooshakType } = require('./utils');
+const {
+  toObject,
+  extractValueOrDefault,
+  getExtension,
+  map2MooshakDifficulty,
+  applyTemplate,
+  map2MooshakType,
+  correctorFrom
+} = require('./utils');
 
 async function yapexil2mef(pathToZip, outputPath = 'output.zip', options = {}) {
   options = Object.assign({}, DEFAULT_OPTIONS, options);
@@ -21,19 +29,19 @@ async function yapexil2mefStream(zipStream, outputStream, options = {}) {
 
   // build new catalog
   const newCatalog = {};
-  await processDynamicCorrectors(newCatalog, metadata, catalog['dynamic-correctors'], options);
   await processEmbeddables(newCatalog, metadata, catalog.embeddables, options);
-  await processFeedbackGenerators(newCatalog, metadata, catalog['feedback-generators'], options);
   await processInstructions(newCatalog, metadata, catalog.instructions, options);
   await processLibraries(newCatalog, metadata, catalog.libraries, options);
   await processSkeletons(newCatalog, metadata, catalog.skeletons, options);
-  await processSolutions(newCatalog, metadata, catalog.solutions, options);
   await processStatements(newCatalog, metadata, catalog.statements, options);
+  await processSolutions(newCatalog, metadata, catalog.solutions, options);
   await processStaticCorrectors(newCatalog, metadata, catalog['static-correctors'], options);
-  await processTemplates(newCatalog, metadata, catalog.templates, options);
-  await processTestGenerators(newCatalog, metadata, catalog['test-generators'], options);
+  await processDynamicCorrectors(newCatalog, metadata, catalog['dynamic-correctors'], options);
   await processTestsets(newCatalog, metadata, catalog.testsets, options);
   await processTests(newCatalog, metadata, catalog.tests, options);
+  await processTemplates(newCatalog, metadata, catalog.templates, options);
+  await processTestGenerators(newCatalog, metadata, catalog['test-generators'], options);
+  await processFeedbackGenerators(newCatalog, metadata, catalog['feedback-generators'], options);
   await generateRootXml(newCatalog, metadata, options);
 
   // create archive
@@ -86,6 +94,26 @@ function createArchive(outputStream) {
   return archive;
 }
 
+async function processStaticCorrectors(newCatalog, metadata, staticCorrectors, options) {
+  if (!staticCorrectors) {
+    return;
+  }
+  const commands = [];
+  for (const id of Object.keys(staticCorrectors)) {
+    const entries = toObject(staticCorrectors[id], 'path');
+    const rootEntry = entries[`static-correctors/${id}/${METADATA_FILENAME}`];
+    if (!rootEntry) {
+      continue;
+    }
+    const submetadata = JSON.parse(rootEntry.buffer.toString());
+    const targetEntry = entries[`static-correctors/${id}/${submetadata.pathname}`];
+    newCatalog[submetadata.pathname] = targetEntry.buffer;
+    commands.push(submetadata.command_line);
+  }
+  newCatalog['static_corrector.sh'] = Buffer.from(correctorFrom(commands), 'utf-8');
+  metadata.Static_corrector = '/bin/sh static_corrector.sh';
+}
+
 async function processDynamicCorrectors(newCatalog, metadata, dynamicCorrectors, options) {
   if (!dynamicCorrectors) {
     return;
@@ -102,7 +130,8 @@ async function processDynamicCorrectors(newCatalog, metadata, dynamicCorrectors,
     newCatalog[submetadata.pathname] = targetEntry.buffer;
     commands.push(submetadata.command_line);
   }
-  metadata.Dynamic_corrector = commands.join(' && ');
+  newCatalog['dynamic_corrector.sh'] = Buffer.from(correctorFrom(commands), 'utf-8');
+  metadata.Dynamic_corrector = '/bin/sh dynamic_corrector.sh';
 }
 
 async function processEmbeddables(newCatalog, metadata, embeddables, options) {
@@ -123,13 +152,6 @@ async function processEmbeddables(newCatalog, metadata, embeddables, options) {
       newCatalog[`images/${submetadata.pathname}`] = targetEntry.buffer;
     }
   }
-}
-
-async function processFeedbackGenerators(newCatalog, metadata, feedbackGenerators, options) {
-  if (!feedbackGenerators) {
-    return;
-  }
-  // Do NOTHING !
 }
 
 async function processInstructions(newCatalog, metadata, instructions, options) {
@@ -266,30 +288,18 @@ async function processTemplates(newCatalog, metadata, templates, options) {
   }
 }
 
-async function processTestGenerators(newCatalog, metadata, testGenerators, options) {
-  if (!testGenerators) {
+async function processFeedbackGenerators(newCatalog, metadata, feedbackGenerators, options) {
+  if (!feedbackGenerators) {
     return;
   }
   // Do NOTHING !
 }
 
-async function processStaticCorrectors(newCatalog, metadata, staticCorrectors, options) {
-  if (!staticCorrectors) {
+async function processTestGenerators(newCatalog, metadata, testGenerators, options) {
+  if (!testGenerators) {
     return;
   }
-  const commands = [];
-  for (const id of Object.keys(staticCorrectors)) {
-    const entries = toObject(staticCorrectors[id], 'path');
-    const rootEntry = entries[`static-correctors/${id}/${METADATA_FILENAME}`];
-    if (!rootEntry) {
-      continue;
-    }
-    const submetadata = JSON.parse(rootEntry.buffer.toString());
-    const targetEntry = entries[`static-correctors/${id}/${submetadata.pathname}`];
-    newCatalog[submetadata.pathname] = targetEntry.buffer;
-    commands.push(submetadata.command_line);
-  }
-  metadata.Static_corrector = commands.join(' && ');
+  // Do NOTHING !
 }
 
 async function processTests(newCatalog, metadata, tests, options, setPrefix = '', setWeight = -1, setVisible = true) {
@@ -382,7 +392,7 @@ async function generateRootXml(newCatalog, metadata, options) {
     Difficulty: map2MooshakDifficulty(metadata.difficulty),
     Editor_kind: map2MooshakType(metadata.type),
     Environment: '',
-    Name: metadata.module ? `${metadata.module} - ${metadata.title}` : metadata.title,
+    Name: metadata.title,
     Original_location: `https://fgpe-project.usz.edu.pl/authorkit/ui/exercises/${metadata.id}`,
     PDF: metadata.statements.pdf || '',
     Program: '',
@@ -391,7 +401,7 @@ async function generateRootXml(newCatalog, metadata, options) {
     Dynamic_corrector: metadata.Dynamic_corrector,
     Static_corrector: metadata.Static_corrector,
     Timeout: extractValueOrDefault(metadata.platform, '--timeout', ''),
-    Title: metadata.title,
+    Title: metadata.module ? `${metadata.module} - ${metadata.title}` : metadata.title,
     Type: '',
     Fatal: '',
     Warning: '',
