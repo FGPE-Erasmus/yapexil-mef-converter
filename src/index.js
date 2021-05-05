@@ -108,7 +108,7 @@ async function processStaticCorrectors(newCatalog, metadata, staticCorrectors, o
     const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`static-correctors/${id}/${submetadata.pathname}`];
     newCatalog[submetadata.pathname] = targetEntry.buffer;
-    commands.push(submetadata.command_line);
+    commands.push(submetadata.command_line.replace('$FILE', submetadata.pathname));
   }
   newCatalog['static_corrector.sh'] = Buffer.from(correctorFrom(commands), 'utf-8');
   metadata.Static_corrector = '/bin/sh static_corrector.sh';
@@ -128,7 +128,7 @@ async function processDynamicCorrectors(newCatalog, metadata, dynamicCorrectors,
     const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`dynamic-correctors/${id}/${submetadata.pathname}`];
     newCatalog[submetadata.pathname] = targetEntry.buffer;
-    commands.push(submetadata.command_line);
+    commands.push(submetadata.command_line.replace('$FILE', submetadata.pathname));
   }
   newCatalog['dynamic_corrector.sh'] = Buffer.from(correctorFrom(commands), 'utf-8');
   metadata.Dynamic_corrector = '/bin/sh dynamic_corrector.sh';
