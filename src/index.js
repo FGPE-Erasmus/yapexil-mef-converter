@@ -17,8 +17,11 @@ const {
 
 async function yapexil2mef(pathToZip, outputPath = 'output.zip', options = {}) {
   options = Object.assign({}, DEFAULT_OPTIONS, options);
-  const zip = fs.createReadStream(pathToZip);
-  return await yapexil2mefStream(zip, fs.createWriteStream(outputPath), options);
+  const zipStream = fs.createReadStream(pathToZip);
+  const outputStream = fs.createWriteStream(outputPath);
+  await yapexil2mefStream(zipStream, outputStream, options);
+  zipStream.close();
+  outputStream.close();
 }
 
 async function yapexil2mefStream(zipStream, outputStream, options = {}) {
