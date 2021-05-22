@@ -251,7 +251,9 @@ async function processStatements(newCatalog, metadata, statements, options) {
     
     newCatalog[submetadata.pathname] = targetEntry.buffer;
 
-    metadata.statements[submetadata.format] = submetadata.pathname;
+    if (!metadata.statements[submetadata.format] || submetadata.nat_lang === 'en') {
+      metadata.statements[submetadata.format] = submetadata.pathname;
+    }
   }
 }
 
@@ -334,12 +336,12 @@ async function processTests(newCatalog, metadata, tests, options, setPrefix = ''
     }
     metadata.tests.push({
       'xml:id': `tests.${name}`,
-      Feedback: '',
+      Feedback: submetadata.feedback ? submetadata.feedback.map(fb => fb.message).join('\n') : '',
       Points: points,
       Result: '',
       Show: setVisible && submetadata.visible === true ? 'Yes' : 'No',
       SolutionErrors: '',
-      Timeout: extractValueOrDefault(submetadata.arguments, '--timeout', ''),
+      Timeout: submetadata.timeout,
       args: submetadata.arguments.join(' '),
       context: '',
       input: submetadata.input,
