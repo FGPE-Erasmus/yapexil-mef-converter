@@ -111,10 +111,10 @@ async function processStaticCorrectors(newCatalog, metadata, staticCorrectors, o
     const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`static-correctors/${id}/${submetadata.pathname}`];
     newCatalog[submetadata.pathname] = targetEntry.buffer;
-    commands.push(submetadata.command_line.replace('$FILE', submetadata.pathname));
+    commands.push(submetadata.command_line.replace(/\$FILE/ig, '$problem/' + submetadata.pathname));
   }
-  newCatalog['static_corrector.sh'] = Buffer.from(correctorFrom(commands), 'utf-8');
-  metadata.Static_corrector = '/bin/sh static_corrector.sh';
+  newCatalog['static_corrector.sh'] = Buffer.from(correctorFrom(commands, false), 'utf-8');
+  metadata.Static_corrector = '/bin/sh $problem/static_corrector.sh $home $program $problem $solution $environment';
 }
 
 async function processDynamicCorrectors(newCatalog, metadata, dynamicCorrectors, options) {
@@ -131,10 +131,10 @@ async function processDynamicCorrectors(newCatalog, metadata, dynamicCorrectors,
     const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`dynamic-correctors/${id}/${submetadata.pathname}`];
     newCatalog[submetadata.pathname] = targetEntry.buffer;
-    commands.push(submetadata.command_line.replace('$FILE', submetadata.pathname));
+    commands.push(submetadata.command_line.replace(/\$FILE/ig, '$problem/' + submetadata.pathname));
   }
-  newCatalog['dynamic_corrector.sh'] = Buffer.from(correctorFrom(commands), 'utf-8');
-  metadata.Dynamic_corrector = '/bin/sh dynamic_corrector.sh';
+  newCatalog['dynamic_corrector.sh'] = Buffer.from(correctorFrom(commands, true), 'utf-8');
+  metadata.Dynamic_corrector = '/bin/sh $problem/dynamic_corrector.sh $home $program $problem $input $expected $obtained $error $args $context $classify_code';
 }
 
 async function processEmbeddables(newCatalog, metadata, embeddables, options) {
@@ -405,7 +405,7 @@ async function generateRootXml(newCatalog, metadata, options) {
     Stop: '',
     Dynamic_corrector: metadata.Dynamic_corrector,
     Static_corrector: metadata.Static_corrector,
-    Timeout: extractValueOrDefault(metadata.platform, '--timeout', ''),
+    Timeout: metadata.timeout && +metadata.timeout > 0 ? +metadata.timeout : '',
     Title: metadata.module ? `${metadata.module} - ${metadata.title}` : metadata.title,
     Type: '',
     Fatal: '',

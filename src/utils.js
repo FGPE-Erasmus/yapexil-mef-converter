@@ -92,11 +92,13 @@ export function applyTemplate(template, code = '') {
   return template;
 }
 
-export function correctorFrom(commands) {
+export function correctorFrom(commands, dynamic) {
   let corrector = `#!/bin/sh
 
+${correctorVariables(dynamic)}
+
 res=0
-mark=255
+mark=128
 `;
   for (const command of commands) {
     corrector = corrector + `
@@ -106,7 +108,7 @@ if [ $status -gt $res ]
 then
   if [ $status -gt 127 ]
   then
-    if [ $status -lt $mark ]
+    if [ $status -gt $mark ]
     then
       mark=$status
     fi
@@ -117,8 +119,36 @@ fi
 `;
   }
   return corrector + `
-[ $res -eq 0 ] && exit $mark || exit $status
+[ $res -eq 0 -a $mark -eq 128 ] && exit 0
+[ $res -eq 0 ] && exit $mark
+exit $res
 `;
+}
+
+export function correctorVariables(dynamic) {
+  if (dynamic) {
+    return `
+home=\${1:-}
+program=\${2:-}
+problem=\${3:-}
+input=\${4:-}
+expected=\${5:-}
+obtained=\${6:-}
+error=\${7:-}
+args=\${8:-}
+context=\${9:-}
+classify_code=\${10:-}
+`;
+  } else {
+    return `
+home=\${1:-}
+program=\${2:-}
+problem=\${3:-}
+solution=\${4:-}
+environment=\${5:-}
+`;
+  }
+  
 }
 
 export function indentString(string, count = 1, options = {}) {
