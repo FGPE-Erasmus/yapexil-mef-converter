@@ -336,7 +336,7 @@ async function processTests(newCatalog, metadata, tests, options, setPrefix = ''
     }
     metadata.tests.push({
       'xml:id': `tests.${name}`,
-      Feedback: submetadata.feedback ? submetadata.feedback.map(fb => fb.message).join('\n') : '',
+      Feedback: submetadata.feedback ? Object.keys(submetadata.feedback).map(key => submetadata.feedback[key].message).join('\n') : '',
       Points: points,
       Result: '',
       Show: setVisible && submetadata.visible === true ? 'Yes' : 'No',
