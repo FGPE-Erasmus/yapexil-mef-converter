@@ -239,7 +239,42 @@ async function processStatements(newCatalog, metadata, statements, options) {
   if (!statements) {
     return;
   }
+
+  // Creating empty languages array that will be later used to create the menu with <a> tags to all languages at the very top of the statement
+  let languages = [];
+
+  // An empty variable to save the first statement pathname.
+  let firstStatement;
+
+
+  // A boolean variable to check whether the script should combine the statements or leave everything as it is
+  let shouldCombine = true;
+
+  if(Object.keys(statements).length < 2) {
+    // If there's only one statement we don't need to combine anything
+    shouldCombine = false;
+  } else {
+
+    // If any statement format is not markdown or html dont combine all statements into one
+    for (const id of Object.keys(statements)) {
+      let statementFormat;
+
+      // Get metadata, if not on the 1 position, then on the second one
+      try {
+        statementFormat = JSON.parse(statements[id][1].buffer.toString()).format;
+      } catch(err) {
+        statementFormat = JSON.parse(statements[id][0].buffer.toString()).format;
+      }
+
+      if(statementFormat !== 'markdown' && statementFormat !== 'html') {
+        shouldCombine = false;
+        break;
+      }
+    }
+  }
+
   metadata.statements = {};
+
   for (const id of Object.keys(statements)) {
     const entries = toObject(statements[id], 'path');
     const rootEntry = entries[`statements/${id}/${METADATA_FILENAME}`];
@@ -248,12 +283,50 @@ async function processStatements(newCatalog, metadata, statements, options) {
     }
     const submetadata = JSON.parse(rootEntry.buffer.toString());
     const targetEntry = entries[`statements/${id}/${submetadata.pathname}`];
-    
-    newCatalog[submetadata.pathname] = targetEntry.buffer;
 
-    if (!metadata.statements[submetadata.format] || submetadata.nat_lang === 'en') {
-      metadata.statements[submetadata.format] = submetadata.pathname;
+
+    if(shouldCombine) {
+      // Create the html anchor, and make a buffer for it to later concat it with statement buffer
+      let htmlAnchor = Buffer.from(`\n<a name="${submetadata.nat_lang}" data-type="lang"></a><br />\n`);
+
+      // Saving the first statement pathname
+      if(!firstStatement) {
+        firstStatement = submetadata.pathname;
+      }
+
+      if(newCatalog[firstStatement]) {
+        // Concat already included statements with htmlAnchor and another statement
+        newCatalog[firstStatement] = Buffer.concat([newCatalog[firstStatement], htmlAnchor,targetEntry.buffer]);
+      } else {
+        // Concat only first statement with htmlAnchor if newCatalog does not contain the statement yet
+        newCatalog[firstStatement] = Buffer.concat([htmlAnchor, targetEntry.buffer]);
+      }
+
+      // Pushing new language to the language link <a href="#"> at the very top of the statement
+      languages.push(`<a href="#${submetadata.nat_lang}">${submetadata.nat_lang.toUpperCase()}</a>`);
+    } else {
+      // If shouldn't combine do everything the old way
+      newCatalog[submetadata.pathname] = targetEntry.buffer;
     }
+    
+
+    if(shouldCombine) {
+      // Only first one - main statement file that combines all other statements
+      if(!metadata.statements[submetadata.format]) {
+        metadata.statements[submetadata.format] = submetadata.pathname;
+      }
+    } else {
+      // Shouldn't combine statements, metadata should be generated the old way
+      if (!metadata.statements[submetadata.format] || submetadata.nat_lang === 'en') {
+        metadata.statements[submetadata.format] = submetadata.pathname;
+      }
+    }
+    
+  }
+
+  if(languages.length > 1 && firstStatement) {
+    const languageMenu = Buffer.from(languages.join(' | ') + "<br />\n");
+    newCatalog[firstStatement] = Buffer.concat([languageMenu, newCatalog[firstStatement]]);
   }
 }
 
@@ -423,7 +496,7 @@ async function generateRootXml(newCatalog, metadata, options) {
       testsEle.ele('Test', test);
     }
   }
-  
+
   const skeletonsEle = root.ele("Skeletons", {
     Show: 'yes',
     'xml:id': 'skeletons'
@@ -433,7 +506,7 @@ async function generateRootXml(newCatalog, metadata, options) {
       skeletonsEle.ele('Skeleton', skeleton);
     }
   }
-  
+
   root.ele('Solutions', {
     'xml:id': 'solutions',
     Fatal: '',
