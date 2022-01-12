@@ -1,6 +1,6 @@
 {
   "name": "yapexil-mef-converter",
-  "version": "1.2.0",
+  "version": "1.2.2",
   "description": "Converter from YAPExIL to MEF.",
   "private": false,
   "main": "lib/index.js",
