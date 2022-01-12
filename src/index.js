@@ -266,7 +266,7 @@ async function processStatements(newCatalog, metadata, statements, options) {
         statementFormat = JSON.parse(statements[id][0].buffer.toString()).format;
       }
 
-      if(statementFormat !== 'markdown' && statementFormat !== 'html') {
+      if(statementFormat && statementFormat.toUpperCase() !== 'MARKDOWN' && statementFormat.toUpperCase() !== 'HTML') {
         shouldCombine = false;
         break;
       }
