@@ -312,13 +312,13 @@ async function processStatements(newCatalog, metadata, statements, options) {
 
     if(shouldCombine) {
       // Only first one - main statement file that combines all other statements
-      if(!metadata.statements[submetadata.format]) {
-        metadata.statements[submetadata.format] = submetadata.pathname;
+      if(!metadata.statements[submetadata.format.toUpperCase()]) {
+        metadata.statements[submetadata.format.toUpperCase()] = submetadata.pathname;
       }
     } else {
       // Shouldn't combine statements, metadata should be generated the old way
-      if (!metadata.statements[submetadata.format] || submetadata.nat_lang === 'en') {
-        metadata.statements[submetadata.format] = submetadata.pathname;
+      if (!metadata.statements[submetadata.format.toUpperCase()] || submetadata.nat_lang === 'en') {
+        metadata.statements[submetadata.format.toUpperCase()] = submetadata.pathname;
       }
     }
     

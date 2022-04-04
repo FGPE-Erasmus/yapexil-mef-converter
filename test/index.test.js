@@ -28,7 +28,7 @@ describe("YAPExIL to MEF conversion.", () => {
     let temp;
 
     for (let i = 0; i < nrOfRuns; i++) {
-      temp = tempFile("blank-sheet-" + i + "-", ".zip");
+      temp = tempFile("blank-sheet-multiple-" + i + "-", ".zip");
       const startTime = process.hrtime();
       await yapexil2mef("./test/BLANK_SHEET_MULTIPLE_STATEMENTS/A.zip", temp);
       const elapsedTime = parseHrtimeToMilliseconds(process.hrtime(startTime));
@@ -53,7 +53,6 @@ describe("YAPExIL to MEF conversion.", () => {
       expectedZip.sizeOfCentralDirectory
     );
   });
-
 
   test("should convert BLANK_SHEET A", async () => {
     executionTimes.BLANK_SHEET = [];
